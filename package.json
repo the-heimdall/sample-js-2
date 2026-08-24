@@ -1,0 +1,27 @@
+{
+  "name": "@the-heimdall/sample-js-2",
+  "version": "1.0.0-rc1-beta.0",
+  "description": "Rehearsal package for tag-triggered npm publishing via OIDC trusted publishing",
+  "type": "module",
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && mkdir -p dist && cp src/index.js dist/index.js",
+    "prepublishOnly": "npm run build",
+    "lint": "eslint src"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/the-heimdall/sample-js-2.git"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  }
+}

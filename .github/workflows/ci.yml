@@ -1,0 +1,31 @@
+name: CI
+
+# Runs on every pull request - when opened, and again on each new commit
+# pushed to it. Deliberately no `push: branches: [main]`: lint has already
+# passed by the time a PR merges, so re-running after merge is redundant.
+on:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      # No credentials needed: every dependency is public, and this repo
+      # deliberately commits no .npmrc.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # Proves the package still compiles before it can ever be released.
+      - name: Build
+        run: npm run build

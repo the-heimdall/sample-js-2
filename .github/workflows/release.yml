@@ -1,0 +1,88 @@
+name: Release
+
+# Only a pushed tag starting with "v" triggers a publish. Pushing to a
+# branch does nothing here. The tag is always "v" + the exact
+# package.json version:
+#   v1.0.0-rc1-beta.1 -> npm, under the "beta" dist-tag
+#   v1.0.0-rc1        -> npm, under "latest"
+#   v1.0.0            -> npm, under "latest"
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Publishing uses npm Trusted Publishing (OIDC), not a stored token.
+# GitHub mints a short-lived identity token for this exact repo +
+# workflow, and npm verifies it against the trusted publisher registered
+# on the package. There is no npm credential anywhere in this repo,
+# in GitHub secrets, or on any laptop.
+permissions:
+  contents: read
+  id-token: write   # required for OIDC - without it, npm falls back to a token
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      # Catches the classic mistake of tagging v1.0.0-rc2 while
+      # package.json still says 1.0.0-rc1. Fails in seconds with a clear
+      # message instead of publishing something mislabelled.
+      - name: Make sure the tag matches package.json
+        run: |
+          PKG="v$(node -p "require('./package.json').version")"
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "package.json says $PKG, tag says $TAG"
+          if [ "$PKG" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match package.json version $PKG"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Repeated from ci.yml on purpose: nothing stops someone tagging a
+      # commit that never went through a pull request.
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      # Trusted publishing needs npm >= 11.5.1. Node 24 already ships a
+      # newer npm, but checking makes the requirement explicit rather than
+      # depending on whatever the runner image happens to have.
+      - name: Check npm supports trusted publishing
+        run: |
+          NPM_V="$(npm --version)"
+          echo "npm $NPM_V / node $(node --version)"
+          # sort -V puts the lower version first; if that isn't 11.5.1 then
+          # the installed npm is older and needs upgrading.
+          if [ "$(printf '%s\n11.5.1\n' "$NPM_V" | sort -V | head -1)" != "11.5.1" ]; then
+            echo "npm $NPM_V is older than 11.5.1 - upgrading"
+            npm install -g npm@latest
+          fi
+
+      # A version containing "-beta." goes out under the "beta" dist-tag so
+      # it never becomes the default `npm install`. Everything else - an rc
+      # like 1.0.0-rc1, or a plain 1.0.0 - goes to "latest".
+      #
+      # Note the test is "-beta." and NOT "contains a hyphen": 1.0.0-rc1
+      # has a hyphen but must still reach latest.
+      - name: Publish to npm
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$VERSION" == *-beta.* ]]; then
+            echo "Beta ($VERSION) -> publishing under the 'beta' dist-tag"
+            npm publish --tag beta
+          else
+            echo "Release ($VERSION) -> publishing under 'latest'"
+            npm publish
+          fi
