@@ -1,6 +1,6 @@
 {
   "name": "@the-heimdall/sample-js-2",
-  "version": "1.0.0-rc1-beta.0",
+  "version": "1.0.0-rc1-beta.1",
   "description": "Rehearsal package for tag-triggered npm publishing via OIDC trusted publishing",
   "type": "module",
   "main": "dist/index.js",
